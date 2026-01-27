@@ -113,25 +113,51 @@ Then open http://localhost:8000/viewer.html in your browser.
 
 The viewer works on any static hosting since it's a real web server (unlike local `file://`).
 
-### Option 1: Deploy CSV + Viewer
+### Deploy Command
 
 ```bash
-# Copy files to your GitHub Pages repo
-cp output/viewer.html your-repo/index.html
-cp output/data.csv your-repo/data.csv
+# Copy files to deployed/ directory
+python main.py deploy
 
-# Push and enable GitHub Pages
+# Or deploy and push in one command
+python main.py deploy --commit --push
 ```
 
-### Option 2: Use Existing HTML Export
+This copies:
+- `output/viewer.html` → `deployed/index.html`
+- `output/data.csv` → `deployed/data.csv`
 
-For a single self-contained file:
+### GitHub Pages Setup
+
+1. Go to your repo **Settings → Pages**
+2. Set source to **Deploy from a branch**
+3. Set branch to **main** and folder to **/deployed**
+4. Save and wait for deployment
+
+### Full Workflow
 
 ```bash
-python main.py search -t visual_artists -e html -o output/index.html
+# 1. Search and build your collection
+python main.py search -t literature -e csv -o output/data.csv
+python main.py search -t visual_artists -e csv -o output/data.csv --append
+
+# 2. Generate the viewer
+python main.py viewer
+
+# 3. Deploy and push
+python main.py deploy --commit --push
 ```
 
-This generates a standalone HTML file with all data embedded.
+Your site will be live at `https://yourusername.github.io/your-repo/`
+
+### Alternative: Standalone HTML
+
+For a single self-contained file (no CSV needed):
+
+```bash
+python main.py search -t visual_artists -e html -o deployed/index.html
+git add deployed && git commit -m "Deploy" && git push
+```
 
 ## Configuration
 
@@ -211,6 +237,19 @@ Options:
 
 ```bash
 python main.py categories   # List all configured categories and terms
+```
+
+### deploy
+
+```bash
+python main.py deploy [OPTIONS]
+
+Options:
+  -c, --source-csv PATH    Source CSV file (default: output/data.csv)
+  -h, --source-html PATH   Source HTML viewer (default: output/viewer.html)
+  -d, --deploy-dir PATH    Deployment directory (default: deployed)
+  --commit                 Git commit the changes
+  --push                   Git push after commit (implies --commit)
 ```
 
 ### check-auth

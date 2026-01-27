@@ -452,5 +452,101 @@ def viewer(csv, output, title):
     console.print(f"  4. Refresh browser to see changes")
 
 
+@cli.command()
+@click.option("--source-csv", "-c", default="output/data.csv", help="Source CSV file path")
+@click.option("--source-html", "-h", default="output/viewer.html", help="Source HTML viewer path")
+@click.option("--deploy-dir", "-d", default="deployed", help="Deployment directory")
+@click.option("--commit", is_flag=True, help="Also git commit the changes")
+@click.option("--push", is_flag=True, help="Also git push after commit (implies --commit)")
+def deploy(source_csv, source_html, deploy_dir, commit, push):
+    """Deploy viewer and data to a directory for GitHub Pages.
+
+    Copies the HTML viewer (as index.html) and CSV data to a deployment
+    directory that can be served by GitHub Pages.
+
+    Example:
+        python main.py deploy
+        python main.py deploy --commit --push
+    """
+    import shutil
+
+    deploy_path = Path(deploy_dir)
+    source_csv_path = Path(source_csv)
+    source_html_path = Path(source_html)
+
+    # Validate source files exist
+    if not source_csv_path.exists():
+        console.print(f"[red]CSV file not found: {source_csv}[/red]")
+        console.print(f"Run: [cyan]python main.py search -e csv -o {source_csv}[/cyan]")
+        sys.exit(1)
+
+    if not source_html_path.exists():
+        console.print(f"[red]HTML viewer not found: {source_html}[/red]")
+        console.print(f"Run: [cyan]python main.py viewer[/cyan]")
+        sys.exit(1)
+
+    # Create deploy directory
+    deploy_path.mkdir(exist_ok=True)
+
+    # Copy files
+    dest_html = deploy_path / "index.html"
+    dest_csv = deploy_path / "data.csv"
+
+    shutil.copy2(source_html_path, dest_html)
+    shutil.copy2(source_csv_path, dest_csv)
+
+    console.print(f"[green]Deployed to {deploy_dir}/[/green]")
+    console.print(f"  {dest_html}")
+    console.print(f"  {dest_csv}")
+
+    # Git operations
+    if push:
+        commit = True  # --push implies --commit
+
+    if commit:
+        import subprocess
+
+        try:
+            # Add deployed files
+            subprocess.run(["git", "add", str(deploy_path)], check=True)
+
+            # Commit
+            result = subprocess.run(
+                ["git", "commit", "-m", "Deploy: update viewer and data"],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                console.print(f"[green]Committed changes[/green]")
+            elif "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
+                console.print(f"[yellow]No changes to commit[/yellow]")
+            else:
+                console.print(f"[red]Commit failed: {result.stderr}[/red]")
+                sys.exit(1)
+
+            if push:
+                subprocess.run(["git", "push"], check=True)
+                console.print(f"[green]Pushed to remote[/green]")
+
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Git error: {e}[/red]")
+            sys.exit(1)
+        except FileNotFoundError:
+            console.print(f"[red]Git not found. Install git or run commands manually.[/red]")
+            sys.exit(1)
+    else:
+        console.print(f"\n[bold]To publish:[/bold]")
+        console.print(f"  [cyan]git add {deploy_dir}[/cyan]")
+        console.print(f"  [cyan]git commit -m 'Deploy: update viewer and data'[/cyan]")
+        console.print(f"  [cyan]git push[/cyan]")
+        console.print(f"\nOr run: [cyan]python main.py deploy --commit --push[/cyan]")
+
+    console.print(f"\n[bold]GitHub Pages setup:[/bold]")
+    console.print(f"  1. Go to repo Settings → Pages")
+    console.print(f"  2. Set source to: [cyan]Deploy from a branch[/cyan]")
+    console.print(f"  3. Set branch to: [cyan]main[/cyan] and folder to: [cyan]/{deploy_dir}[/cyan]")
+
+
 if __name__ == "__main__":
     cli()
