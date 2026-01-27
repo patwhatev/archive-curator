@@ -1,0 +1,9 @@
+# Simple test categories - 3 terms for testing list integration
+
+test_artists:
+  description: "Test search terms"
+  mediatype: [texts]
+  terms:
+    - name: "Henry Darger"
+    - name: "Jean Dubuffet"
+    - name: "Francis Picabia"

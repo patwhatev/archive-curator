@@ -1,0 +1,19 @@
+# Available archive.org lists
+# Add new lists here as you create them
+
+lists:
+  - name: "culture-library"
+    description: "Main culture library collection"
+    parent: "@80081355"
+    list_id: "1"
+
+  - name: "researcher-test-list"
+    description: "Test list for development"
+    parent: "@80081355"
+    list_id: "4"
+
+# Future: CSV sources will be added here
+# sources:
+#   - type: csv
+#     path: "data/import.csv"
+#     name: "CSV Import"

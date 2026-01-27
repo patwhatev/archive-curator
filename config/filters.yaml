@@ -1,0 +1,114 @@
+# Confidence scoring and filtering rules
+
+# Minimum confidence score (0-100) to include an item
+min_confidence: 60
+
+# Minimum engagement thresholds
+# Items below these thresholds are filtered out before scoring
+min_downloads: 0
+min_favorites: 1
+
+# Page count rules (for texts)
+page_count:
+  min_pages: 50
+  # Bonus points for longer works
+  bonus_threshold: 200
+  bonus_points: 10
+
+# Title/description patterns that indicate academic papers or analysis
+# These REDUCE confidence
+academic_patterns:
+  - "thesis"
+  - "dissertation"
+  - "college paper"
+  - "term paper"
+  - "student paper"
+  - "analysis of"
+  - "critique of"
+  - "examination of"
+  - "study of"
+  - "essay on"
+  - "senior project"
+  - "undergraduate"
+  - "graduate thesis"
+  - "university of"
+  - "submitted to"
+  - "in partial fulfillment"
+
+# Penalty for academic-looking content
+academic_penalty: 40
+
+# Patterns that indicate interviews or live recordings (for audio)
+# These REDUCE confidence for music searches
+interview_patterns:
+  - "interview"
+  - "speaks"
+  - "talking"
+  - "conversation with"
+  - "in conversation"
+  - "lecture"
+  - "q&a"
+  - "panel"
+
+live_recording_patterns:
+  - "live at"
+  - "live in"
+  - "concert"
+  - "bootleg"
+  - "audience recording"
+
+interview_penalty: 50
+live_recording_penalty: 30
+
+# Publisher whitelist - these get bonus points
+# Leave empty to disable publisher boosting
+trusted_publishers:
+  # Major labels and imprints known for quality releases
+  - "Rhino"
+  - "Nonesuch"
+  - "ECM"
+  - "4AD"
+  - "Rough Trade"
+  - "SST Records"
+  - "Touch and Go"
+  - "Dischord"
+  - "Alternative Tentacles"
+  # Art book publishers
+  - "Taschen"
+  - "Phaidon"
+  - "Rizzoli"
+  - "Thames & Hudson"
+  - "MIT Press"
+  - "Princeton University Press"
+  - "Yale University Press"
+  - "Museum of Modern Art"
+  - "Abrams"
+
+publisher_bonus: 15
+
+# Collection whitelist - items from these collections get bonus
+trusted_collections:
+  - "opensource_audio"
+  - "etree"  # Live music archive (if you want live recordings)
+  - "audio_music"
+  - "americana"
+  - "gutenberg"
+  - "biodiversity"
+
+collection_bonus: 10
+
+# Formats to prefer (bonus points)
+preferred_formats:
+  audio:
+    - "FLAC"
+    - "VBR MP3"
+    - "Ogg Vorbis"
+  texts:
+    - "PDF"
+    - "EPUB"
+    - "DJVU"
+
+format_bonus: 5
+
+# Maximum results per search term
+max_results_per_term: 50

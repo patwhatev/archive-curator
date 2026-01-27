@@ -1,0 +1,83 @@
+music_and_sound:
+  description: "Musicians and sound artists"
+  mediatype: [audio]
+  terms:
+    - name: "Crass"
+    - name: "Minutemen"
+    - name: "Richard Hell"
+    - name: "Television"
+    - name: "Johnny Thunders"
+    - name: "LAMF"
+    - name: "Sid Vicious"
+    - name: "Psychic TV"
+    - name: "Brian Jonestown Massacre"
+    - name: "Rowland S. Howard"
+    - name: "Lou Reed"
+    - name: "Chopin"
+    - name: "Keith Richards"
+
+visual_art_and_artists:
+  description: "Visual artists and art movements"
+  mediatype: [texts]
+  terms:
+    - name: "Henry Darger"
+    - name: "Jean Dubuffet"
+    - name: "Art Brut"
+    - name: "Larry Clark"
+    - name: "a Perfect Childhood larry clark"
+    - name: "Cy Twombly"
+    - name: "Robert Motherwell"
+    - name: "Francis Picabia"
+    - name: "Bauhaus"
+    - name: "Antoni Tapies"
+    - name: "Don Van Vliet"
+    - name: "Wallace Berman"
+    - name: "Bruce Conner"
+    - name: "Terry Richardson"
+    - name: "Kiki Picasso"
+    - name: "Frank Lloyd Wright"
+
+film_and_cinema:
+  description: "Films and filmmakers"
+  mediatype: [movies, texts]
+  terms:
+    - name: "Kenneth Anger"
+    - name: "Roman Polanski"
+    - name: "Benny's Video haneke"
+    - name: "Bitter Moon polanski"
+    - name: "Rush zanuck"
+    - name: "Buffalo 66 vincent gallo"
+    - name: "Mulholland Drive david lynch"
+    - name: "Bully larry clark"
+
+literature:
+  description: "Authors and literary works"
+  mediatype: [texts]
+  terms:
+    - name: "Bret Easton Ellis"
+    - name: "Mass Psychology of Fascism"
+    - name: "Albert Camus"
+    - name: "Friedrich Nietzsche"
+    - name: "Henry Miller"
+    - name: "Charles Bukowski"
+    - name: "William S. Burroughs"
+    - name: "Marquis de Sade"
+    - name: "Andre Breton"
+
+figures:
+  description: "Historical and cultural figures"
+  mediatype: [texts]
+  terms:
+    - name: "Stalin"
+    - name: "Mao"
+    - name: "Mussolini"
+    - name: "Napoleon"
+    - name: "NY Young Republican Club"
+    - name: "Baron Trump"
+    - name: "John Wayne Gacy"
+    - name: "Aileen Wuornos"
+    - name: "Menendez Brothers"
+    - name: "Columbine"
+    - name: "Christiane F"
+    - name: "Bob Flanagan"
+    - name: "Genesis P-Orridge"
