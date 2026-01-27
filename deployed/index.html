@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archive Curator</title>
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/helvetica-neue-55');
+
+        :root {
+            --bg: #000000;
+            --sidebar-bg: #0a0a0a;
+            --card-bg: #000000;
+            --text: #ffffff;
+            --text-dim: #888888;
+            --accent: #a90000;
+            --border: #333333;
+            --hover-bg: #1a1a1a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            font-size: 11pt;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1.5rem 0;
+        }
+
+        .sidebar-header {
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .sidebar-header .meta {
+            color: var(--text-dim);
+            font-size: 10pt;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        /* Category accordion */
+        .category {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 700;
+            font-size: 10pt;
+            letter-spacing: 0.05em;
+            transition: background 0.15s ease;
+        }
+
+        .category-header:hover {
+            background: var(--hover-bg);
+        }
+
+        .category-header .arrow {
+            transition: transform 0.2s ease;
+        }
+
+        .category.open .category-header .arrow {
+            transform: rotate(90deg);
+        }
+
+        .category-items {
+            display: none;
+            padding-bottom: 0.5rem;
+        }
+
+        .category.open .category-items {
+            display: block;
+        }
+
+        .artist-item {
+            padding: 0.5rem 1.5rem 0.5rem 2rem;
+            cursor: pointer;
+            font-size: 10pt;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .artist-item:hover {
+            background: var(--hover-bg);
+            color: var(--text);
+        }
+
+        .artist-item.active {
+            color: var(--accent);
+            background: var(--hover-bg);
+        }
+
+        .artist-item .count {
+            font-size: 9pt;
+            opacity: 0.6;
+        }
+
+        /* Main content */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem 3rem;
+        }
+
+        .main-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .main-header h2 {
+            font-size: 28pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .main-header .subtitle {
+            color: var(--text-dim);
+            font-size: 11pt;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        .controls {
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--text);
+            padding: 0.4rem 1rem;
+            cursor: pointer;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            font-weight: 500;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+        }
+
+        button:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        /* Items grid */
+        .items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .item {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            transition: border-color 0.15s ease;
+        }
+
+        .item:hover {
+            border-color: var(--accent);
+        }
+
+        .item-thumbnail {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            margin-bottom: 0.75rem;
+            background: #111111;
+        }
+
+        .item-title {
+            font-weight: 700;
+            font-size: 10pt;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+            text-transform: uppercase;
+        }
+
+        .item-title a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .item-title a:hover {
+            color: var(--accent);
+        }
+
+        .item-meta {
+            font-size: 9pt;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .item-meta-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-value.accent {
+            color: var(--accent);
+        }
+
+        .item-creator {
+            font-size: 9pt;
+            color: var(--text-dim);
+            font-style: italic;
+            margin-top: 0.5rem;
+            text-transform: none;
+        }
+
+        .open-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: var(--accent);
+            font-size: 9pt;
+            text-decoration: none;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .open-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state h3 {
+            font-size: 14pt;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>Archive Curator</h1>
+            <p class="meta" id="stats">Loading...</p>
+        </div>
+        <nav id="nav"></nav>
+    </aside>
+
+    <main class="main">
+        <div class="loading" id="loading">Loading data...</div>
+        <div id="content" style="display: none;">
+            <header class="main-header">
+                <h2 id="current-title">Select an artist</h2>
+                <p class="subtitle" id="current-subtitle"></p>
+            </header>
+            <div class="items" id="items"></div>
+        </div>
+    </main>
+
+    <script>
+        const CSV_FILE = 'data.csv';
+        let allData = [];
+        let currentItems = [];
+
+        // Parse CSV
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = parseCSVLine(lines[0]);
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((h, idx) => row[h] = values[idx] || '');
+                data.push(row);
+            }
+            return data;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        // Build navigation
+        function buildNav(data) {
+            const nav = document.getElementById('nav');
+            const structure = {};
+
+            // Group by category -> artist
+            data.forEach(item => {
+                const cat = item.category || 'Uncategorized';
+                const artist = item.search_term || 'Unknown';
+
+                if (!structure[cat]) structure[cat] = {};
+                if (!structure[cat][artist]) structure[cat][artist] = [];
+                structure[cat][artist].push(item);
+            });
+
+            nav.innerHTML = '';
+
+            Object.keys(structure).sort().forEach(category => {
+                const artists = structure[category];
+                const artistCount = Object.keys(artists).length;
+                const itemCount = Object.values(artists).flat().length;
+
+                const catDiv = document.createElement('div');
+                catDiv.className = 'category';
+                catDiv.innerHTML = `
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <span>${category} (${itemCount})</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="category-items"></div>
+                `;
+
+                const itemsDiv = catDiv.querySelector('.category-items');
+                Object.keys(artists).sort().forEach(artist => {
+                    const items = artists[artist];
+                    const artistDiv = document.createElement('div');
+                    artistDiv.className = 'artist-item';
+                    artistDiv.innerHTML = `
+                        <span>${artist}</span>
+                        <span class="count">${items.length}</span>
+                    `;
+                    artistDiv.onclick = () => showArtist(category, artist, items);
+                    itemsDiv.appendChild(artistDiv);
+                });
+
+                nav.appendChild(catDiv);
+            });
+
+            // Update stats
+            const categories = Object.keys(structure).length;
+            const artists = Object.values(structure).reduce((acc, cat) => acc + Object.keys(cat).length, 0);
+            document.getElementById('stats').textContent = `${data.length} items / ${artists} artists / ${categories} categories`;
+        }
+
+        function toggleCategory(header) {
+            header.parentElement.classList.toggle('open');
+        }
+
+        function showArtist(category, artist, items) {
+            // Update active state
+            document.querySelectorAll('.artist-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // Update header
+            document.getElementById('current-title').textContent = artist;
+            document.getElementById('current-subtitle').textContent = `${category} / ${items.length} items`;
+
+            // Store current items for actions
+            currentItems = items;
+
+            // Render items
+            renderItems(items);
+        }
+
+        function renderItems(items) {
+            const container = document.getElementById('items');
+            container.innerHTML = items.map(item => `
+                <div class="item" data-url="${item.url}">
+                    <a href="${item.url}" target="_blank">
+                        <img class="item-thumbnail"
+                             src="https://archive.org/services/img/${item.identifier}"
+                             alt="${item.title}"
+                             loading="lazy"
+                             onerror="this.style.display='none'">
+                    </a>
+                    <div class="item-title">
+                        <a href="${item.url}" target="_blank">${item.title}</a>
+                    </div>
+                    <div class="item-meta">
+                        <div class="item-meta-row">
+                            <span>Confidence</span>
+                            <span class="meta-value accent">${item.confidence_score}</span>
+                        </div>
+                        <div class="item-meta-row">
+                            <span>Type</span>
+                            <span class="meta-value">${item.mediatype}</span>
+                        </div>
+                    </div>
+                    ${item.creator ? `<div class="item-creator">${item.creator}</div>` : ''}
+                    <a href="${item.url}" target="_blank" class="open-link">View →</a>
+                </div>
+            `).join('');
+        }
+
+        function openAllVisible() {
+            if (currentItems.length === 0) return;
+            if (confirm(`Open ${currentItems.length} tabs?`)) {
+                currentItems.forEach(item => window.open(item.url, '_blank'));
+            }
+        }
+
+        function copyVisibleUrls() {
+            if (currentItems.length === 0) return;
+            const urls = currentItems.map(item => item.url).join('\n');
+            navigator.clipboard.writeText(urls).then(() => alert('URLs copied!'));
+        }
+
+        // Load data
+        fetch(CSV_FILE)
+            .then(res => {
+                if (!res.ok) throw new Error('CSV not found');
+                return res.text();
+            })
+            .then(text => {
+                allData = parseCSV(text);
+                buildNav(allData);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            })
+            .catch(err => {
+                document.getElementById('loading').innerHTML = `
+                    <p>Error loading data: ${err.message}</p>
+                    <p style="margin-top: 1rem;">Make sure <code>${CSV_FILE}</code> exists in the same directory.</p>
+                `;
+            });
+    </script>
+</body>
+</html>
