@@ -116,7 +116,7 @@ The viewer works on any static hosting since it's a real web server (unlike loca
 ### Deploy Command
 
 ```bash
-# Copy files to deployed/ directory
+# Copy files to docs/ directory
 python main.py deploy
 
 # Or deploy and push in one command
@@ -124,14 +124,14 @@ python main.py deploy --commit --push
 ```
 
 This copies:
-- `output/viewer.html` → `deployed/index.html`
-- `output/data.csv` → `deployed/data.csv`
+- `output/viewer.html` → `docs/index.html`
+- `output/data.csv` → `docs/data.csv`
 
 ### GitHub Pages Setup
 
 1. Go to your repo **Settings → Pages**
 2. Set source to **Deploy from a branch**
-3. Set branch to **main** and folder to **/deployed**
+3. Set branch to **main** and folder to **/docs**
 4. Save and wait for deployment
 
 ### Full Workflow
@@ -155,7 +155,7 @@ Your site will be live at `https://yourusername.github.io/your-repo/`
 For a single self-contained file (no CSV needed):
 
 ```bash
-python main.py search -t visual_artists -e html -o deployed/index.html
+python main.py search -t visual_artists -e html -o docs/index.html
 git add deployed && git commit -m "Deploy" && git push
 ```
 

@@ -455,7 +455,7 @@ def viewer(csv, output, title):
 @cli.command()
 @click.option("--source-csv", "-c", default="output/data.csv", help="Source CSV file path")
 @click.option("--source-html", "-h", default="output/viewer.html", help="Source HTML viewer path")
-@click.option("--deploy-dir", "-d", default="deployed", help="Deployment directory")
+@click.option("--deploy-dir", "-d", default="docs", help="Deployment directory (GitHub Pages uses /docs)")
 @click.option("--commit", is_flag=True, help="Also git commit the changes")
 @click.option("--push", is_flag=True, help="Also git push after commit (implies --commit)")
 def deploy(source_csv, source_html, deploy_dir, commit, push):
