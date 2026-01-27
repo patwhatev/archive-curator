@@ -659,6 +659,12 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "Arc
         }}
 
         .category-header .arrow {{
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            border-left: 6px solid var(--text);
             transition: transform 0.2s ease;
         }}
 
@@ -1103,7 +1109,7 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "Arc
                 catDiv.innerHTML = `
                     <div class="category-header" onclick="toggleCategory(this)">
                         <span>${{category}} (${{itemCount}})</span>
-                        <span class="arrow">▶</span>
+                        <span class="arrow"></span>
                     </div>
                     <div class="category-items"></div>
                 `;
