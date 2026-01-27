@@ -855,10 +855,150 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "Arc
             color: var(--text-dim);
             text-transform: uppercase;
         }}
+
+        /* Mobile menu toggle */
+        .mobile-header {{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+        }}
+
+        .mobile-header-content {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+
+        .mobile-header h1 {{
+            font-size: 14pt;
+            font-weight: 700;
+            text-transform: uppercase;
+        }}
+
+        .menu-toggle {{
+            background: none;
+            border: 1px solid var(--text);
+            color: var(--text);
+            padding: 0.5rem 0.75rem;
+            font-size: 9pt;
+            text-transform: uppercase;
+        }}
+
+        .menu-toggle.active {{
+            background: var(--text);
+            color: var(--bg);
+        }}
+
+        /* Mobile styles */
+        @media (max-width: 768px) {{
+            body {{
+                flex-direction: column;
+            }}
+
+            .mobile-header {{
+                display: block;
+            }}
+
+            .sidebar {{
+                position: fixed;
+                top: 60px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                z-index: 99;
+                transform: translateY(-100%);
+                opacity: 0;
+                transition: transform 0.3s ease, opacity 0.3s ease;
+                overflow-y: auto;
+                max-height: calc(100vh - 60px);
+            }}
+
+            .sidebar.open {{
+                transform: translateY(0);
+                opacity: 1;
+            }}
+
+            .sidebar-header {{
+                display: none;
+            }}
+
+            .main {{
+                margin-top: 60px;
+                padding: 1.5rem;
+            }}
+
+            .main-header h2 {{
+                font-size: 18pt;
+            }}
+
+            .main-header .subtitle {{
+                font-size: 9pt;
+            }}
+
+            /* 2-column grid on mobile */
+            .items {{
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }}
+
+            .item {{
+                padding: 0.75rem;
+            }}
+
+            .item-thumbnail {{
+                height: 120px;
+            }}
+
+            .item-title {{
+                font-size: 9pt;
+            }}
+
+            .item-meta {{
+                font-size: 8pt;
+            }}
+
+            .item-creator {{
+                font-size: 8pt;
+            }}
+
+            .open-link {{
+                font-size: 8pt;
+            }}
+
+            .category-header {{
+                padding: 1rem 1.5rem;
+            }}
+
+            .artist-item {{
+                padding: 0.75rem 1.5rem 0.75rem 2rem;
+            }}
+        }}
+
+        /* Small mobile - single column */
+        @media (max-width: 400px) {{
+            .items {{
+                grid-template-columns: 1fr;
+            }}
+        }}
     </style>
 </head>
 <body>
-    <aside class="sidebar">
+    <!-- Mobile header -->
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <h1>{title}</h1>
+            <button class="menu-toggle" onclick="toggleMobileMenu()">Menu</button>
+        </div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h1>{title}</h1>
             <p class="meta" id="stats">Loading...</p>
@@ -881,6 +1021,25 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "Arc
         const CSV_FILE = '{csv_filename}';
         let allData = [];
         let currentItems = [];
+
+        // Mobile menu functions
+        function toggleMobileMenu() {{
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.menu-toggle');
+            sidebar.classList.toggle('open');
+            toggle.classList.toggle('active');
+            toggle.textContent = sidebar.classList.contains('open') ? 'Close' : 'Menu';
+        }}
+
+        function closeMobileMenu() {{
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.menu-toggle');
+            if (window.innerWidth <= 768) {{
+                sidebar.classList.remove('open');
+                toggle.classList.remove('active');
+                toggle.textContent = 'Menu';
+            }}
+        }}
 
         // Parse CSV
         function parseCSV(text) {{
@@ -989,6 +1148,9 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "Arc
 
             // Render items
             renderItems(items);
+
+            // Close mobile menu after selection
+            closeMobileMenu();
         }}
 
         function renderItems(items) {{
