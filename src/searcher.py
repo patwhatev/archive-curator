@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import logging
+import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List
 from internetarchive import search_items, get_item
@@ -12,6 +13,143 @@ logger = logging.getLogger(__name__)
 
 # Maximum concurrent metadata fetches
 MAX_WORKERS = 10
+
+
+def fetch_user_favorites(username: str, max_results: int = 500) -> List[dict]:
+    """Fetch items from a user's favorites on archive.org.
+
+    Uses the search API with fav-USERNAME collection filter.
+
+    Args:
+        username: Archive.org username (without @)
+        max_results: Maximum number of results to fetch
+
+    Returns:
+        List of dicts with item info
+    """
+    # Use the advanced search API to find favorited items
+    api_url = "https://archive.org/advancedsearch.php"
+
+    fields = [
+        "identifier",
+        "title",
+        "mediatype",
+        "creator",
+        "publisher",
+        "description",
+        "downloads",
+    ]
+
+    params = {
+        "q": f"collection:fav-{username}",
+        "fl[]": fields,
+        "output": "json",
+        "rows": max_results,
+    }
+
+    try:
+        response = requests.get(api_url, params=params, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+
+        docs = data.get("response", {}).get("docs", [])
+        total = data.get("response", {}).get("numFound", 0)
+
+        console.print(f"[dim]Found {total} items in favorites (fetched {len(docs)})[/dim]")
+
+        return docs
+
+    except requests.RequestException as e:
+        console.print(f"[red]Error fetching favorites: {e}[/red]")
+        return []
+    except (KeyError, ValueError) as e:
+        console.print(f"[red]Error parsing response: {e}[/red]")
+        return []
+
+
+def fetch_list_items(list_url: str) -> List[dict]:
+    """Fetch items from an archive.org user list/favorites.
+
+    Args:
+        list_url: URL to the archive.org list or username
+
+    Returns:
+        List of dicts with basic item info
+    """
+    import re
+
+    # Extract username from URL
+    # URL format: https://archive.org/details/@username/lists/N/list-name
+    # Or just: @username or username
+    match = re.search(r'@([^/]+)', list_url)
+    if match:
+        username = match.group(1)
+    else:
+        # Assume it's just a username
+        username = list_url.lstrip('@')
+
+    return fetch_user_favorites(username)
+
+
+def fetch_item_basic_info(identifier: str) -> Optional[dict]:
+    """Fetch basic info for a single item (lighter than full metadata).
+
+    Args:
+        identifier: Archive.org item identifier
+
+    Returns:
+        Dict with basic item info or None
+    """
+    try:
+        item = get_item(identifier)
+        if not item.exists:
+            return None
+
+        metadata = item.metadata
+        return {
+            "identifier": identifier,
+            "title": metadata.get("title", "Unknown"),
+            "mediatype": metadata.get("mediatype", "unknown"),
+            "creator": metadata.get("creator"),
+            "publisher": metadata.get("publisher"),
+            "description": metadata.get("description", ""),
+            "collection": metadata.get("collection", []),
+            "downloads": metadata.get("downloads", 0),
+        }
+    except Exception as e:
+        logger.debug(f"Error fetching {identifier}: {e}")
+        return None
+
+
+def fetch_items_basic_info_batch(identifiers: List[str]) -> dict[str, Optional[dict]]:
+    """Fetch basic info for multiple items in parallel.
+
+    Args:
+        identifiers: List of archive.org item identifiers
+
+    Returns:
+        Dict mapping identifier to item info (or None if fetch failed)
+    """
+    results = {}
+
+    if not identifiers:
+        return results
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_id = {
+            executor.submit(fetch_item_basic_info, id): id
+            for id in identifiers
+        }
+
+        for future in as_completed(future_to_id):
+            identifier = future_to_id[future]
+            try:
+                results[identifier] = future.result()
+            except Exception as e:
+                logger.debug(f"Error fetching {identifier}: {e}")
+                results[identifier] = None
+
+    return results
 
 
 def build_search_query(term: dict, mediatypes: List[str]) -> str:

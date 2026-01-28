@@ -22,7 +22,8 @@ from rich.prompt import Prompt
 from src.analyzer import analyze_category, AnalyzedItem
 from src.filters import FilterConfig
 from src.curator import ListConfig, add_items_to_list, get_existing_list_items
-from src.exporter import export_to_csv, export_to_html, export_to_json, generate_html_viewer
+from src.exporter import export_to_csv, export_to_html, export_to_json, generate_html_viewer, backup_csv, list_backups, BACKUP_DIR, load_existing_csv, CSV_FIELDNAMES
+from src.searcher import fetch_list_items
 
 console = Console()
 
@@ -492,6 +493,10 @@ def deploy(source_csv, source_html, deploy_dir, commit, push):
     dest_html = deploy_path / "index.html"
     dest_csv = deploy_path / "data.csv"
 
+    # Backup existing deployed CSV before overwriting
+    if dest_csv.exists():
+        backup_csv(dest_csv, "deploy")
+
     shutil.copy2(source_html_path, dest_html)
     shutil.copy2(source_csv_path, dest_csv)
 
@@ -546,6 +551,205 @@ def deploy(source_csv, source_html, deploy_dir, commit, push):
     console.print(f"  1. Go to repo Settings → Pages")
     console.print(f"  2. Set source to: [cyan]Deploy from a branch[/cyan]")
     console.print(f"  3. Set branch to: [cyan]main[/cyan] and folder to: [cyan]/{deploy_dir}[/cyan]")
+
+
+@cli.command()
+@click.option("--all", "-a", "delete_all", is_flag=True, help="Delete all backups without prompting")
+def cleanup(delete_all):
+    """Manage CSV backup files.
+
+    Lists all backup files and lets you select which to delete.
+    Backups are created automatically when exporting or deploying.
+    """
+    backups = list_backups()
+
+    if not backups:
+        console.print("[yellow]No backup files found.[/yellow]")
+        console.print(f"Backups are stored in: [cyan]{BACKUP_DIR}/[/cyan]")
+        return
+
+    console.print(f"\n[bold]Backup files ({len(backups)}):[/bold]\n")
+
+    # Calculate total size
+    total_size = sum(b.stat().st_size for b in backups)
+
+    for i, backup in enumerate(backups, 1):
+        stat = backup.stat()
+        size_kb = stat.st_size / 1024
+        mtime = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+        console.print(f"  [cyan]{i:2}[/cyan]) {backup.name}")
+        console.print(f"      [dim]{mtime} - {size_kb:.1f} KB[/dim]")
+
+    console.print(f"\n[dim]Total: {total_size / 1024:.1f} KB in {len(backups)} files[/dim]")
+
+    if delete_all:
+        if Prompt.ask("\n[red]Delete ALL backups?[/red]", choices=["y", "n"], default="n") == "y":
+            for backup in backups:
+                backup.unlink()
+            console.print(f"[green]Deleted {len(backups)} backup files.[/green]")
+        return
+
+    console.print("\n[bold]Options:[/bold]")
+    console.print("  Enter numbers to delete (e.g., '1 3 5' or '1-5')")
+    console.print("  Enter 'all' to delete all backups")
+    console.print("  Enter 'q' to quit without deleting")
+
+    choice = Prompt.ask("\nSelect backups to delete", default="q")
+
+    if choice.lower() == "q":
+        console.print("[dim]No files deleted.[/dim]")
+        return
+
+    if choice.lower() == "all":
+        for backup in backups:
+            backup.unlink()
+        console.print(f"[green]Deleted {len(backups)} backup files.[/green]")
+        return
+
+    # Parse selection (supports "1 3 5" or "1-5" or "1,3,5")
+    to_delete = set()
+    parts = choice.replace(",", " ").split()
+
+    for part in parts:
+        if "-" in part:
+            try:
+                start, end = part.split("-")
+                for i in range(int(start), int(end) + 1):
+                    to_delete.add(i)
+            except ValueError:
+                console.print(f"[red]Invalid range: {part}[/red]")
+                return
+        else:
+            try:
+                to_delete.add(int(part))
+            except ValueError:
+                console.print(f"[red]Invalid number: {part}[/red]")
+                return
+
+    # Validate indices
+    valid_indices = set(range(1, len(backups) + 1))
+    invalid = to_delete - valid_indices
+    if invalid:
+        console.print(f"[red]Invalid selection: {invalid}[/red]")
+        return
+
+    # Delete selected files
+    deleted = 0
+    for i in sorted(to_delete):
+        backup = backups[i - 1]
+        backup.unlink()
+        console.print(f"[dim]Deleted {backup.name}[/dim]")
+        deleted += 1
+
+    console.print(f"\n[green]Deleted {deleted} backup files.[/green]")
+
+
+@cli.command()
+@click.option("--user", "-u", default="80081355",
+              help="Archive.org username to sync favorites from")
+@click.option("--csv", "-c", default="docs/data.csv", help="Target CSV file to update")
+@click.option("--category", "-t", default="other", help="Category for new items (default: 'other')")
+@click.option("--dry-run", "-n", is_flag=True, help="Preview changes without modifying CSV")
+def sync(user, csv, category, dry_run):
+    """Sync favorites from archive.org to the CSV.
+
+    Fetches items from your archive.org favorites and adds any new ones
+    to the CSV file. Duplicates (by identifier) are skipped.
+
+    New items are labeled with the specified category (default: 'other').
+    You can then manually update the CSV to assign proper categories.
+
+    Example:
+        python main.py sync
+        python main.py sync --dry-run
+        python main.py sync --category "film"
+        python main.py sync --user another_user
+    """
+    import csv as csv_module
+
+    csv_path = Path(csv)
+
+    # Fetch items from the archive.org favorites
+    console.print(f"\n[bold]Fetching favorites for @{user}...[/bold]")
+    list_items = fetch_list_items(user)
+
+    if not list_items:
+        console.print("[yellow]No items found in favorites or failed to fetch.[/yellow]")
+        return
+
+    # Load existing CSV
+    existing_rows = []
+    existing_ids = set()
+
+    if csv_path.exists():
+        existing_rows = load_existing_csv(csv_path)
+        existing_ids = {row.get("identifier", "") for row in existing_rows}
+        console.print(f"[dim]Existing CSV has {len(existing_rows)} items[/dim]")
+
+    # Build new rows from items not already in CSV
+    # The search API returns full metadata, so no need to fetch separately
+    new_rows = []
+    for item in list_items:
+        identifier = item.get("identifier", "")
+        if not identifier or identifier in existing_ids:
+            continue
+
+        # Normalize creator field
+        creator = item.get("creator", "")
+        if isinstance(creator, list):
+            creator = ", ".join(str(c) for c in creator)
+
+        row = {
+            "category": category,
+            "search_term": category,  # Use category as search_term for manual adds
+            "title": item.get("title", "Unknown"),
+            "identifier": identifier,
+            "url": f"https://archive.org/details/{identifier}",
+            "mediatype": item.get("mediatype", "unknown"),
+            "confidence_score": "70",  # Default score for manual adds
+            "creator": creator or "",
+            "publisher": item.get("publisher", "") or "",
+            "page_count": "",
+        }
+        new_rows.append(row)
+
+    if not new_rows:
+        console.print("[green]No new items to add. CSV is up to date.[/green]")
+        return
+
+    # Display what will be added
+    console.print(f"\n[bold]Items to add ({len(new_rows)}):[/bold]\n")
+    for row in new_rows[:20]:  # Show first 20
+        console.print(f"  [cyan]{row['mediatype']:8}[/cyan] {row['title'][:60]}")
+    if len(new_rows) > 20:
+        console.print(f"  [dim]... and {len(new_rows) - 20} more[/dim]")
+
+    if dry_run:
+        console.print(f"\n[yellow]DRY RUN: No changes made. Would add {len(new_rows)} items.[/yellow]")
+        return
+
+    # Backup existing CSV before modifying
+    if csv_path.exists():
+        backup_csv(csv_path, "sync")
+
+    # Write updated CSV
+    all_rows = existing_rows + new_rows
+
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv_module.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        for row in all_rows:
+            writer.writerow(row)
+
+    console.print(f"\n[green]Added {len(new_rows)} items to {csv_path}[/green]")
+    console.print(f"[dim]Total items in CSV: {len(all_rows)}[/dim]")
+
+    console.print(f"\n[bold]Next steps:[/bold]")
+    console.print(f"  1. Review/edit [cyan]{csv_path}[/cyan] (new items have category '{category}')")
+    console.print(f"  2. Regenerate viewer: [cyan]python main.py viewer[/cyan]")
+    console.print(f"  3. Deploy: [cyan]python main.py deploy --commit --push[/cyan]")
 
 
 if __name__ == "__main__":

@@ -106,6 +106,45 @@ CSV_FIELDNAMES = [
 ]
 
 
+BACKUP_DIR = Path("backups")
+
+
+def backup_csv(source_path: Path, reason: str = "backup") -> Optional[Path]:
+    """Create a timestamped backup of a CSV file.
+
+    Args:
+        source_path: Path to the CSV file to backup
+        reason: Reason for backup (used in filename)
+
+    Returns:
+        Path to backup file, or None if source doesn't exist
+    """
+    if not source_path.exists():
+        return None
+
+    BACKUP_DIR.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"{source_path.stem}_{reason}_{timestamp}.csv"
+    backup_path = BACKUP_DIR / backup_name
+
+    import shutil
+    shutil.copy2(source_path, backup_path)
+
+    console.print(f"[dim]Backed up to {backup_path}[/dim]")
+    return backup_path
+
+
+def list_backups() -> list[Path]:
+    """List all backup files sorted by modification time (newest first)."""
+    if not BACKUP_DIR.exists():
+        return []
+
+    backups = list(BACKUP_DIR.glob("*.csv"))
+    backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return backups
+
+
 def load_existing_csv(path: Path) -> list[dict]:
     """Load existing CSV data as list of dicts."""
     if not path.exists():
@@ -128,6 +167,10 @@ def export_to_csv(items: list, output_path: Path, include_failed: bool = False, 
     Returns:
         Number of items exported
     """
+    # Backup existing CSV before modifying
+    if output_path.exists():
+        backup_csv(output_path, "export")
+
     filtered = items if include_failed else [i for i in items if i.confidence.passes]
     filtered = _deduplicate_items(filtered)
     filtered = _apply_mediatype_limits(filtered)
@@ -148,7 +191,7 @@ def export_to_csv(items: list, output_path: Path, include_failed: bool = False, 
             "page_count": item.page_count or "",
         })
 
-    # If appending, merge with existing data
+    # If appending, merge with existing data (from backup we just made)
     if append and output_path.exists():
         existing_rows = load_existing_csv(output_path)
         existing_ids = {row["identifier"] for row in existing_rows}
