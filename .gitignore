@@ -8,5 +8,5 @@ dist/
 build/
 .DS_Store
 output/
-ubu_data/
+/ubu_data/
 *.log
