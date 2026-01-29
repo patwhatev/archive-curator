@@ -429,28 +429,38 @@ def check_auth(ctx):
 @click.option("--csv", "-c", default="data.csv", help="CSV data file name (default: data.csv)")
 @click.option("--output", "-o", default="output/viewer.html", help="Output HTML file path")
 @click.option("--title", "-t", default="Archive Curator", help="Page title")
-def viewer(csv, output, title):
+@click.option("--source", "-s", type=click.Choice(["all", "archive", "ubu"]), default="all",
+              help="Data source: all (archive.org + UbuWeb), archive (archive.org only), ubu (UbuWeb only)")
+@click.option("--password", "-p", default=None, help="Password to protect viewer (or set VIEWER_PASSWORD env var)")
+def viewer(csv, output, title, source, password):
     """Generate an HTML viewer that reads from a CSV file.
 
     The viewer loads data from the CSV dynamically, so you can edit
     the CSV and refresh the browser to see changes immediately.
 
-    Example workflow:
-        1. python main.py search -e csv -o output/data.csv
-        2. python main.py viewer --csv data.csv
-        3. Open output/viewer.html in browser
-        4. Edit output/data.csv as needed, refresh browser
+    Examples:
+        python main.py viewer                    # Both archive.org and UbuWeb
+        python main.py viewer --source archive   # Archive.org only
+        python main.py viewer --source ubu       # UbuWeb only
+        python main.py viewer --password secret  # Password protected
     """
+    # Get password from env if not provided
+    viewer_password = password or os.environ.get("VIEWER_PASSWORD", "")
+
     output_path = Path(output)
     output_path.parent.mkdir(exist_ok=True)
 
-    generate_html_viewer(csv, output_path, title)
+    generate_html_viewer(csv, output_path, title, source=source, password=viewer_password)
 
-    console.print(f"\n[bold]Workflow:[/bold]")
-    console.print(f"  1. Export search results: [cyan]python main.py search -e csv -o output/{csv}[/cyan]")
-    console.print(f"  2. Open [cyan]{output}[/cyan] in your browser")
-    console.print(f"  3. Edit [cyan]output/{csv}[/cyan] to add/modify items")
-    console.print(f"  4. Refresh browser to see changes")
+    console.print(f"\n[bold]Source:[/bold] {source}")
+    if source in ["all", "archive"]:
+        console.print(f"  Archive.org: reads from [cyan]{csv}[/cyan]")
+    if source in ["all", "ubu"]:
+        console.print(f"  UbuWeb: reads from [cyan]ubu_data/*.csv[/cyan]")
+    if viewer_password:
+        console.print(f"  [yellow]Password protection: enabled[/yellow]")
+    else:
+        console.print(f"  Password protection: disabled")
 
 
 @cli.command()
@@ -499,6 +509,16 @@ def deploy(source_csv, source_html, deploy_dir, commit, push):
 
     shutil.copy2(source_html_path, dest_html)
     shutil.copy2(source_csv_path, dest_csv)
+
+    # Copy ubu_data directory if it exists
+    ubu_data_source = Path("ubu_data")
+    ubu_data_dest = deploy_path / "ubu_data"
+    if ubu_data_source.exists() and ubu_data_source.is_dir():
+        if ubu_data_dest.exists():
+            shutil.rmtree(ubu_data_dest)
+        shutil.copytree(ubu_data_source, ubu_data_dest)
+        ubu_file_count = len(list(ubu_data_dest.glob("*.csv")))
+        console.print(f"  {ubu_data_dest}/ ({ubu_file_count} CSV files)")
 
     console.print(f"[green]Deployed to {deploy_dir}/[/green]")
     console.print(f"  {dest_html}")

@@ -258,6 +258,69 @@ Options:
 python main.py check-auth   # Verify archive.org API credentials
 ```
 
+## UbuWeb Scraper
+
+A separate script for scraping [ubu.com](https://ubu.com) categories, artists, and works into CSV files.
+
+### Setup
+
+The scraper uses Playwright for browser automation. After installing dependencies, you must also install the browser:
+
+```bash
+# Install Python dependencies (if not already done)
+pip install -r requirements.txt
+
+# Install Chromium browser for Playwright (required)
+playwright install chromium
+```
+
+### Usage
+
+```bash
+# Test mode - scrape 1 category, 1 artist (proof of concept)
+python ubu_scraper.py --test
+
+# Test with visible browser window
+python ubu_scraper.py --test --visible
+
+# Scrape a specific category
+python ubu_scraper.py --category sound
+
+# Limit artists per category
+python ubu_scraper.py --category film --limit 10
+
+# Full scrape (all categories)
+python ubu_scraper.py
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--test`, `-t` | Test mode: scrape 1 category, 1 artist |
+| `--visible` | Show browser window (non-headless) |
+| `--category`, `-c` | Scrape only a specific category |
+| `--limit`, `-l` | Limit number of artists per category |
+
+### Output
+
+CSV files are saved to `ubu_data/` directory, one file per category:
+
+```
+ubu_data/
+├── sound.csv
+├── film_and_video.csv
+├── dance.csv
+└── ...
+```
+
+Each CSV contains:
+- `artist_name` - Artist/creator name
+- `artist_url` - URL to artist page
+- `works` - Comma-separated list of work titles
+- `work_urls` - Comma-separated list of work URLs
+- `category` - Parent category name
+
 ## Confidence Scoring
 
 Items start at 70 points. Adjustments:

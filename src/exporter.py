@@ -604,7 +604,7 @@ def export_to_json(items: list, output_path: Path, include_failed: bool = False)
     return len(filtered)
 
 
-def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la galerie pathétique") -> None:
+def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la galerie pathétique", source: str = "all", password: str = "") -> None:
     """Generate an HTML viewer that reads from a CSV file.
 
     The HTML file uses JavaScript to parse the CSV and render items dynamically.
@@ -614,7 +614,18 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
         csv_filename: Name of the CSV file (relative to the HTML file)
         output_path: Path to write the HTML viewer
         title: Page title
+        source: Data source - "all" (archive.org + UbuWeb), "archive" (archive.org only), "ubu" (UbuWeb only)
+        password: Optional password to protect the viewer (will be hashed)
     """
+    import hashlib
+
+    include_archive = source in ["all", "archive"]
+    include_ubu = source in ["all", "ubu"]
+
+    # Hash the password if provided
+    password_hash = ""
+    if password:
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -749,6 +760,170 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
         .artist-item .count {{
             font-size: 9pt;
             opacity: 0.6;
+        }}
+
+        /* UbuWeb nested categories - white bg, black text, red accents */
+        .ubu-section {{
+            border-bottom: 1px solid var(--border);
+            background: #ffffff;
+        }}
+
+        .ubu-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 700;
+            font-size: 10pt;
+            letter-spacing: 0.05em;
+            transition: background 0.15s ease;
+            background: #ffffff;
+            color: var(--accent);
+        }}
+
+        .ubu-header:hover {{
+            background: #f5f5f5;
+        }}
+
+        .ubu-header .arrow {{
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            border-left: 6px solid var(--accent);
+            transition: transform 0.2s ease;
+        }}
+
+        .ubu-section.open .ubu-header .arrow {{
+            transform: rotate(90deg);
+        }}
+
+        .ubu-categories {{
+            display: none;
+        }}
+
+        .ubu-section.open .ubu-categories {{
+            display: block;
+        }}
+
+        .ubu-category {{
+            border-top: 1px solid var(--border);
+        }}
+
+        .ubu-category-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1.5rem 0.6rem 2rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 9pt;
+            letter-spacing: 0.03em;
+            color: #333333;
+            background: #ffffff;
+            transition: all 0.15s ease;
+        }}
+
+        .ubu-category-header:hover {{
+            background: #f5f5f5;
+            color: #000000;
+        }}
+
+        .ubu-category-header .arrow {{
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-top: 3px solid transparent;
+            border-bottom: 3px solid transparent;
+            border-left: 5px solid var(--accent);
+            transition: transform 0.2s ease;
+        }}
+
+        .ubu-category.open .ubu-category-header .arrow {{
+            transform: rotate(90deg);
+        }}
+
+        .ubu-category-items {{
+            display: none;
+            padding-bottom: 0.5rem;
+        }}
+
+        .ubu-category.open .ubu-category-items {{
+            display: block;
+        }}
+
+        .ubu-artist-item {{
+            padding: 0.4rem 1.5rem 0.4rem 3rem;
+            cursor: pointer;
+            font-size: 9pt;
+            text-transform: uppercase;
+            color: #333333;
+            background: #ffffff;
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+
+        .ubu-artist-item:hover {{
+            background: #f5f5f5;
+            color: #000000;
+        }}
+
+        .ubu-artist-item.active {{
+            color: var(--accent);
+            background: #f0f0f0;
+        }}
+
+        .ubu-artist-item .count {{
+            font-size: 8pt;
+            opacity: 0.6;
+        }}
+
+        /* UbuWeb work items */
+        .ubu-item {{
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            transition: border-color 0.15s ease;
+        }}
+
+        .ubu-item:hover {{
+            border-color: var(--accent);
+        }}
+
+        .ubu-item-title {{
+            font-weight: 700;
+            font-size: 10pt;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }}
+
+        .ubu-item-title a {{
+            color: var(--text);
+            text-decoration: none;
+        }}
+
+        .ubu-item-title a:hover {{
+            color: var(--accent);
+        }}
+
+        .ubu-item-link {{
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: var(--accent);
+            font-size: 9pt;
+            text-decoration: none;
+            font-weight: 500;
+            text-transform: uppercase;
+        }}
+
+        .ubu-item-link:hover {{
+            text-decoration: underline;
         }}
 
         /* Main content */
@@ -897,6 +1072,48 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
             text-transform: uppercase;
         }}
 
+        /* Home state */
+        .home-actions {{
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }}
+
+        .home-action {{
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            font-weight: 500;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            display: inline-block;
+        }}
+
+        .home-action:hover {{
+            background: var(--accent);
+            color: #ffffff;
+        }}
+
+        /* Clickable title */
+        .sidebar-header h1 {{
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }}
+
+        .sidebar-header h1:hover {{
+            color: var(--accent);
+        }}
+
+        .mobile-header h1 {{
+            cursor: pointer;
+        }}
+
         /* Loading state */
         .loading {{
             text-align: center;
@@ -1036,20 +1253,103 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
                 grid-template-columns: 1fr;
             }}
         }}
+
+        /* Password overlay */
+        .password-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .password-overlay.hidden {{
+            display: none;
+        }}
+
+        .password-box {{
+            text-align: center;
+            padding: 3rem;
+            max-width: 400px;
+        }}
+
+        .password-box h2 {{
+            font-size: 24pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            letter-spacing: -0.02em;
+        }}
+
+        .password-box input {{
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            width: 100%;
+            margin-bottom: 1rem;
+            text-align: center;
+        }}
+
+        .password-box input:focus {{
+            outline: none;
+            border-color: var(--accent);
+        }}
+
+        .password-box button {{
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+        }}
+
+        .password-box .error {{
+            color: var(--accent);
+            font-size: 10pt;
+            margin-top: 1rem;
+            text-transform: uppercase;
+            display: none;
+        }}
+
+        .password-box .error.visible {{
+            display: block;
+        }}
     </style>
 </head>
 <body>
+"""
+
+    # Add password overlay if password is set
+    if password_hash:
+        html += f"""
+    <!-- Password overlay -->
+    <div class="password-overlay" id="password-overlay">
+        <div class="password-box">
+            <h2>{title}</h2>
+            <input type="password" id="password-input" placeholder="Enter password" autocomplete="off">
+            <button onclick="checkPassword()">Enter</button>
+            <p class="error" id="password-error">Incorrect password</p>
+        </div>
+    </div>
+"""
+
+    html += """
     <!-- Mobile header -->
     <div class="mobile-header">
         <div class="mobile-header-content">
-            <h1>{title}</h1>
+            <h1 onclick="goHome()">{title}</h1>
             <button class="menu-toggle" onclick="toggleMobileMenu()">Menu</button>
         </div>
     </div>
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h1>{title}</h1>
+            <h1 onclick="goHome()">{title}</h1>
             <p class="meta" id="stats">Loading...</p>
         </div>
         <nav id="nav"></nav>
@@ -1068,8 +1368,39 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
 
     <script>
         const CSV_FILE = '{csv_filename}';
+        const UBU_DATA_DIR = 'ubu_data';
         let allData = [];
+        let ubuData = {{}};
         let currentItems = [];
+        let isUbuView = false;
+
+        // Media type pools for random selection
+        let mediaPool = {{
+            all: [],
+            video: [],
+            text: [],
+            audio: []
+        }};
+
+        // UbuWeb category to media type mapping
+        const UBU_MEDIA_MAP = {{
+            'Film & Video': 'video',
+            'Sound': 'audio',
+            'Dance': 'video',
+            'Papers': 'text',
+            'Historical': 'text',
+            'Visual Poetry': 'text',
+            'Conceptual Comics': 'text',
+            'Conceptual Writing': 'text',
+            'Contemporary': 'text',
+            'Aspen Magazine': 'text',
+            'Outsiders': 'audio',
+            '/ubu Editions': 'text',
+            '365 Days Project': 'audio',
+            'Ethnopoetics': 'text',
+            'Electronic Music Resources': 'audio',
+            'UbuWeb Top Tens': 'video'
+        }};
 
         // Mobile menu functions
         function toggleMobileMenu() {{
@@ -1087,6 +1418,153 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
                 sidebar.classList.remove('open');
                 toggle.classList.remove('active');
                 toggle.textContent = 'Menu';
+            }}
+        }}
+
+        // Home and random functions
+        function goHome() {{
+            document.querySelectorAll('.artist-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.ubu-artist-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('current-title').textContent = 'Select something';
+            document.getElementById('current-subtitle').textContent = '';
+            document.getElementById('items').innerHTML = '';
+            currentItems = [];
+            isUbuView = false;
+            closeMobileMenu();
+        }}
+
+        function buildMediaPools() {{
+            mediaPool = {{ all: [], video: [], text: [], audio: [] }};
+
+            // Add archive.org items
+            allData.forEach(item => {{
+                const poolItem = {{
+                    type: 'archive',
+                    title: item.title,
+                    url: item.url,
+                    category: item.category,
+                    artist: item.search_term,
+                    mediatype: item.mediatype,
+                    data: item
+                }};
+                mediaPool.all.push(poolItem);
+
+                if (item.mediatype === 'movies') mediaPool.video.push(poolItem);
+                else if (item.mediatype === 'texts') mediaPool.text.push(poolItem);
+                else if (item.mediatype === 'audio') mediaPool.audio.push(poolItem);
+            }});
+
+            // Add UbuWeb items
+            Object.keys(ubuData).forEach(category => {{
+                const mediaType = UBU_MEDIA_MAP[category] || 'text';
+                ubuData[category].forEach(row => {{
+                    // Parse works if available
+                    if (row.works) {{
+                        const titles = row.works.split(', ').filter(t => t.trim());
+                        const urls = row.work_urls ? row.work_urls.split(', ').filter(u => u.trim()) : [];
+                        titles.forEach((title, i) => {{
+                            const poolItem = {{
+                                type: 'ubu',
+                                title: title.trim(),
+                                url: urls[i] ? urls[i].trim() : row.artist_url,
+                                category: category,
+                                artist: row.artist_name,
+                                mediatype: mediaType,
+                                data: row
+                            }};
+                            mediaPool.all.push(poolItem);
+                            if (mediaType === 'video') mediaPool.video.push(poolItem);
+                            else if (mediaType === 'text') mediaPool.text.push(poolItem);
+                            else if (mediaType === 'audio') mediaPool.audio.push(poolItem);
+                        }});
+                    }} else {{
+                        // For items like Aspen with content_html
+                        const poolItem = {{
+                            type: 'ubu',
+                            title: row.artist_name,
+                            url: row.artist_url,
+                            category: category,
+                            artist: row.artist_name,
+                            mediatype: mediaType,
+                            data: row
+                        }};
+                        mediaPool.all.push(poolItem);
+                        if (mediaType === 'video') mediaPool.video.push(poolItem);
+                        else if (mediaType === 'text') mediaPool.text.push(poolItem);
+                        else if (mediaType === 'audio') mediaPool.audio.push(poolItem);
+                    }}
+                }});
+            }});
+        }}
+
+        function showRandom() {{
+            if (mediaPool.all.length === 0) return;
+            const item = mediaPool.all[Math.floor(Math.random() * mediaPool.all.length)];
+            displayRandomItem(item);
+        }}
+
+        function showRandomVideo() {{
+            if (mediaPool.video.length === 0) {{
+                alert('No video items available');
+                return;
+            }}
+            const item = mediaPool.video[Math.floor(Math.random() * mediaPool.video.length)];
+            displayRandomItem(item);
+        }}
+
+        function showRandomText() {{
+            if (mediaPool.text.length === 0) {{
+                alert('No text items available');
+                return;
+            }}
+            const item = mediaPool.text[Math.floor(Math.random() * mediaPool.text.length)];
+            displayRandomItem(item);
+        }}
+
+        function displayRandomItem(item) {{
+            document.getElementById('current-title').textContent = item.title;
+            document.getElementById('current-subtitle').textContent = `${{item.type === 'ubu' ? 'UbuWeb' : 'Archive.org'}} / ${{item.category}} / ${{item.artist}}`;
+
+            const container = document.getElementById('items');
+
+            if (item.type === 'archive') {{
+                container.innerHTML = `
+                    <div class="item" style="grid-column: 1 / -1; max-width: 400px;">
+                        <a href="${{item.url}}" target="_blank">
+                            <img class="item-thumbnail"
+                                 src="https://archive.org/services/img/${{item.data.identifier}}"
+                                 alt="${{item.title}}"
+                                 loading="lazy"
+                                 onerror="this.style.display='none'">
+                        </a>
+                        <div class="item-title">
+                            <a href="${{item.url}}" target="_blank">${{item.title}}</a>
+                        </div>
+                        <div class="item-meta">
+                            <div class="item-meta-row">
+                                <span>Type</span>
+                                <span class="meta-value">${{item.data.mediatype}}</span>
+                            </div>
+                        </div>
+                        ${{item.data.creator ? `<div class="item-creator">${{item.data.creator}}</div>` : ''}}
+                        <a href="${{item.url}}" target="_blank" class="open-link">View →</a>
+                    </div>
+                `;
+            }} else {{
+                container.innerHTML = `
+                    <div class="ubu-item" style="grid-column: 1 / -1; max-width: 400px;">
+                        <div class="ubu-item-title">
+                            <a href="${{item.url}}" target="_blank">${{item.title}}</a>
+                        </div>
+                        <div class="item-meta">
+                            <div class="item-meta-row">
+                                <span>Artist</span>
+                                <span class="meta-value">${{item.artist}}</span>
+                            </div>
+                        </div>
+                        <a href="${{item.url}}" target="_blank" class="ubu-item-link">Open →</a>
+                    </div>
+                `;
             }}
         }}
 
@@ -1180,12 +1658,17 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
         }}
 
         function toggleCategory(header) {{
-            header.parentElement.classList.toggle('open');
+            const isOpen = header.parentElement.classList.contains('open');
+            // Close all categories and ubu sections
+            document.querySelectorAll('.category.open, .ubu-section.open, .ubu-category.open').forEach(el => el.classList.remove('open'));
+            // Open this one if it wasn't already open
+            if (!isOpen) header.parentElement.classList.add('open');
         }}
 
         function showArtist(category, artist, items) {{
             // Update active state
             document.querySelectorAll('.artist-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.ubu-artist-item').forEach(el => el.classList.remove('active'));
             event.currentTarget.classList.add('active');
 
             // Update header
@@ -1194,6 +1677,7 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
 
             // Store current items for actions
             currentItems = items;
+            isUbuView = false;
 
             // Render items
             renderItems(items);
@@ -1245,24 +1729,388 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
             navigator.clipboard.writeText(urls).then(() => alert('URLs copied!'));
         }}
 
-        // Load data
-        fetch(CSV_FILE)
-            .then(res => {{
-                if (!res.ok) throw new Error('CSV not found');
-                return res.text();
-            }})
-            .then(text => {{
-                allData = parseCSV(text);
-                buildNav(allData);
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-            }})
-            .catch(err => {{
-                document.getElementById('loading').innerHTML = `
-                    <p>Error loading data: ${{err.message}}</p>
-                    <p style="margin-top: 1rem;">Make sure <code>${{CSV_FILE}}</code> exists in the same directory.</p>
+        // UbuWeb functions
+        async function loadUbuData() {{
+            try {{
+                const knownCategories = [
+                    'film_and_video', 'sound', 'dance', 'papers', 'historical',
+                    'visual_poetry', 'conceptual_comics', 'conceptual_writing',
+                    'contemporary', 'aspen_magazine', 'outsiders', '_ubu_editions',
+                    '365_days_project', 'ethnopoetics', 'electronic_music_resources',
+                    'ubuweb_top_tens'
+                ];
+
+                const loadPromises = knownCategories.map(async (cat) => {{
+                    try {{
+                        const res = await fetch(`${{UBU_DATA_DIR}}/${{cat}}.csv`);
+                        if (!res.ok) return null;
+                        const text = await res.text();
+                        const data = parseCSV(text);
+                        if (data.length > 0) {{
+                            return {{ category: data[0].category || cat, artists: data }};
+                        }}
+                    }} catch (e) {{
+                        return null;
+                    }}
+                    return null;
+                }});
+
+                const results = await Promise.all(loadPromises);
+                results.filter(r => r !== null).forEach(r => {{
+                    ubuData[r.category] = r.artists;
+                }});
+
+                if (Object.keys(ubuData).length > 0) {{
+                    buildUbuNav();
+                }}
+            }} catch (err) {{
+                console.log('UbuWeb data not available:', err.message);
+            }}
+        }}
+
+        function buildUbuNav() {{
+            const nav = document.getElementById('nav');
+
+            const ubuSection = document.createElement('div');
+            ubuSection.className = 'ubu-section';
+            ubuSection.innerHTML = `
+                <div class="ubu-header" onclick="toggleUbuSection(this)">
+                    <span>Browse UbuWeb</span>
+                    <span class="arrow"></span>
+                </div>
+                <div class="ubu-categories"></div>
+            `;
+
+            const categoriesDiv = ubuSection.querySelector('.ubu-categories');
+
+            Object.keys(ubuData).sort().forEach(category => {{
+                const artists = ubuData[category];
+
+                const artistMap = {{}};
+                artists.forEach(row => {{
+                    const name = row.artist_name;
+                    if (!artistMap[name]) {{
+                        artistMap[name] = {{
+                            name: name,
+                            url: row.artist_url,
+                            works: [],
+                            work_urls: [],
+                            content_html: row.content_html || ''
+                        }};
+                    }}
+                    if (row.works) {{
+                        const titles = row.works.split(', ').filter(t => t.trim());
+                        const urls = row.work_urls ? row.work_urls.split(', ').filter(u => u.trim()) : [];
+                        titles.forEach((title, i) => {{
+                            artistMap[name].works.push({{
+                                title: title.trim(),
+                                url: urls[i] ? urls[i].trim() : '#'
+                            }});
+                        }});
+                    }}
+                }});
+
+                const artistList = Object.values(artistMap);
+
+                const catDiv = document.createElement('div');
+                catDiv.className = 'ubu-category';
+                catDiv.innerHTML = `
+                    <div class="ubu-category-header" onclick="toggleUbuCategory(this)">
+                        <span>${{category}} (${{artistList.length}})</span>
+                        <span class="arrow"></span>
+                    </div>
+                    <div class="ubu-category-items"></div>
+                `;
+
+                const itemsDiv = catDiv.querySelector('.ubu-category-items');
+                artistList.sort((a, b) => a.name.localeCompare(b.name)).forEach(artist => {{
+                    const artistDiv = document.createElement('div');
+                    artistDiv.className = 'ubu-artist-item';
+                    artistDiv.innerHTML = `
+                        <span>${{artist.name}}</span>
+                        <span class="count">${{artist.works.length}}</span>
+                    `;
+                    artistDiv.onclick = (e) => {{
+                        e.stopPropagation();
+                        showUbuArtist(category, artist);
+                    }};
+                    itemsDiv.appendChild(artistDiv);
+                }});
+
+                categoriesDiv.appendChild(catDiv);
+            }});
+
+            nav.appendChild(ubuSection);
+
+            // Add "Show Me Something" section with random buttons
+            const randomSection = document.createElement('div');
+            randomSection.className = 'category';
+            randomSection.innerHTML = `
+                <div class="category-header" onclick="toggleCategory(this)">
+                    <span>Show Me Something</span>
+                    <span class="arrow"></span>
+                </div>
+                <div class="category-items">
+                    <div class="artist-item" onclick="showRandom(); event.stopPropagation();">
+                        <span>Random Item</span>
+                    </div>
+                    <div class="artist-item" onclick="showRandomVideo(); event.stopPropagation();">
+                        <span>Random Video</span>
+                    </div>
+                    <div class="artist-item" onclick="showRandomText(); event.stopPropagation();">
+                        <span>Random Text</span>
+                    </div>
+                </div>
+            `;
+            nav.appendChild(randomSection);
+
+            updateStats();
+        }}
+
+        function toggleUbuSection(header) {{
+            const isOpen = header.parentElement.classList.contains('open');
+            // Close all categories and ubu sections
+            document.querySelectorAll('.category.open, .ubu-section.open, .ubu-category.open').forEach(el => el.classList.remove('open'));
+            // Open this one if it wasn't already open
+            if (!isOpen) header.parentElement.classList.add('open');
+        }}
+
+        function toggleUbuCategory(header) {{
+            const isOpen = header.parentElement.classList.contains('open');
+            // Close other ubu categories (but keep parent ubu-section open)
+            document.querySelectorAll('.ubu-category.open').forEach(el => el.classList.remove('open'));
+            // Open this one if it wasn't already open
+            if (!isOpen) header.parentElement.classList.add('open');
+        }}
+
+        function showUbuArtist(category, artist) {{
+            document.querySelectorAll('.artist-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.ubu-artist-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            document.getElementById('current-title').textContent = artist.name;
+
+            isUbuView = true;
+
+            // Check if this is HTML content (like Aspen Magazine)
+            if (artist.content_html) {{
+                document.getElementById('current-subtitle').textContent = `UbuWeb / ${{category}}`;
+                currentItems = [];
+                renderUbuHtmlContent(artist.content_html, artist.url);
+            }} else {{
+                document.getElementById('current-subtitle').textContent = `UbuWeb / ${{category}} / ${{artist.works.length}} works`;
+                currentItems = artist.works;
+                renderUbuItems(artist.works, artist.url);
+            }}
+
+            closeMobileMenu();
+        }}
+
+        function renderUbuItems(works, artistUrl) {{
+            const container = document.getElementById('items');
+
+            let html = '';
+            if (artistUrl && artistUrl !== '#') {{
+                html += `
+                    <div class="ubu-item" style="grid-column: 1 / -1; background: var(--hover-bg);">
+                        <div class="ubu-item-title">
+                            <a href="${{artistUrl}}" target="_blank">→ View Artist Page on UbuWeb</a>
+                        </div>
+                    </div>
+                `;
+            }}
+
+            html += works.map(work => `
+                <div class="ubu-item">
+                    <div class="ubu-item-title">
+                        <a href="${{work.url}}" target="_blank">${{work.title}}</a>
+                    </div>
+                    <a href="${{work.url}}" target="_blank" class="ubu-item-link">Open →</a>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }}
+
+        function renderUbuHtmlContent(contentHtml, artistUrl) {{
+            const container = document.getElementById('items');
+
+            // Parse the HTML to extract text and links
+            const parser = new DOMParser();
+            // Convert &#10; back to newlines for parsing
+            const cleanHtml = contentHtml.replace(/&#10;/g, '\\n');
+            const doc = parser.parseFromString(cleanHtml, 'text/html');
+
+            let html = '';
+
+            // Add link to original page
+            if (artistUrl && artistUrl !== '#') {{
+                html += `
+                    <div class="ubu-item" style="grid-column: 1 / -1; background: var(--hover-bg); margin-bottom: 1rem;">
+                        <div class="ubu-item-title">
+                            <a href="${{artistUrl}}" target="_blank">→ View Original Page on UbuWeb</a>
+                        </div>
+                    </div>
+                `;
+            }}
+
+            // Extract all links from the content
+            const links = doc.querySelectorAll('a[href]');
+            const seenUrls = new Set();
+
+            links.forEach(link => {{
+                let href = link.getAttribute('href');
+                const text = link.textContent.trim();
+
+                if (!text || !href || href === '#') return;
+
+                // Make relative URLs absolute
+                if (!href.startsWith('http')) {{
+                    const base = artistUrl.substring(0, artistUrl.lastIndexOf('/') + 1);
+                    href = base + href;
+                }}
+
+                // Skip duplicates and navigation links
+                if (seenUrls.has(href) || href.includes('index.html') && !href.includes('/aspen')) return;
+                seenUrls.add(href);
+
+                html += `
+                    <div class="ubu-item">
+                        <div class="ubu-item-title">
+                            <a href="${{href}}" target="_blank">${{text}}</a>
+                        </div>
+                        <a href="${{href}}" target="_blank" class="ubu-item-link">Open →</a>
+                    </div>
                 `;
             }});
+
+            // If no links found, show the text content
+            if (links.length === 0) {{
+                const textContent = doc.body.textContent.trim();
+                html += `
+                    <div class="ubu-item" style="grid-column: 1 / -1;">
+                        <div style="white-space: pre-wrap; font-size: 10pt; line-height: 1.6;">${{textContent}}</div>
+                    </div>
+                `;
+            }}
+
+            container.innerHTML = html;
+        }}
+
+        function updateStats() {{
+            const archiveItems = allData.length;
+            const archiveArtists = new Set(allData.map(d => d.search_term)).size;
+            const archiveCategories = new Set(allData.map(d => d.category)).size;
+
+            let ubuWorks = 0;
+            Object.values(ubuData).forEach(artists => {{
+                artists.forEach(a => {{
+                    if (a.works) {{
+                        ubuWorks += a.works.split(', ').filter(w => w.trim()).length;
+                    }}
+                }});
+            }});
+
+            const ubuCategories = Object.keys(ubuData).length;
+
+            let statsText = `${{archiveItems}} items / ${{archiveArtists}} artists / ${{archiveCategories}} categories`;
+            if (ubuCategories > 0) {{
+                statsText += ` + UbuWeb: ${{ubuWorks}} works`;
+            }}
+            document.getElementById('stats').textContent = statsText;
+        }}
+
+        // Load data
+        async function init() {{
+            try {{
+"""
+
+    # Build conditional init() body
+    if include_archive:
+        html += """                const res = await fetch(CSV_FILE);
+                if (res.ok) {
+                    const text = await res.text();
+                    allData = parseCSV(text);
+                    buildNav(allData);
+                }
+"""
+
+    if include_ubu:
+        html += """
+                await loadUbuData();
+"""
+
+    html += """                updateStats();
+                buildMediaPools();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            } catch (err) {
+                document.getElementById('loading').innerHTML = `
+                    <p>Error loading data: ${err.message}</p>
+"""
+
+    if include_archive and include_ubu:
+        html += """                    <p style="margin-top: 1rem;">Make sure <code>${CSV_FILE}</code> or <code>${UBU_DATA_DIR}/</code> exists.</p>
+"""
+    elif include_archive:
+        html += """                    <p style="margin-top: 1rem;">Make sure <code>${CSV_FILE}</code> exists in the same directory.</p>
+"""
+    else:  # ubu only
+        html += """                    <p style="margin-top: 1rem;">Make sure <code>${UBU_DATA_DIR}/</code> directory exists with CSV files.</p>
+"""
+
+    html += """                `;
+            }
+        }
+
+        init();
+"""
+
+    # Add password validation JavaScript if password is set
+    if password_hash:
+        html += f"""
+        // Password protection
+        const PASSWORD_HASH = '{password_hash}';
+        const AUTH_KEY = 'galerie_auth_' + PASSWORD_HASH.substring(0, 8);
+
+        async function hashPassword(password) {{
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }}
+
+        async function checkPassword() {{
+            const input = document.getElementById('password-input');
+            const error = document.getElementById('password-error');
+            const hash = await hashPassword(input.value);
+
+            if (hash === PASSWORD_HASH) {{
+                sessionStorage.setItem(AUTH_KEY, 'authenticated');
+                document.getElementById('password-overlay').classList.add('hidden');
+            }} else {{
+                error.classList.add('visible');
+                input.value = '';
+                input.focus();
+            }}
+        }}
+
+        // Handle enter key
+        document.getElementById('password-input').addEventListener('keypress', (e) => {{
+            if (e.key === 'Enter') checkPassword();
+        }});
+
+        // Check if already authenticated
+        if (sessionStorage.getItem(AUTH_KEY) === 'authenticated') {{
+            document.getElementById('password-overlay').classList.add('hidden');
+        }} else {{
+            document.getElementById('password-input').focus();
+        }}
+"""
+
+    html += """
     </script>
 </body>
 </html>
@@ -1272,5 +2120,9 @@ def generate_html_viewer(csv_filename: str, output_path: Path, title: str = "la 
         f.write(html)
 
     console.print(f"[green]Generated HTML viewer at {output_path}[/green]")
-    console.print(f"[dim]  → Reads data from: {csv_filename}[/dim]")
-    console.print(f"[dim]  → Edit the CSV and refresh the browser to see changes[/dim]")
+    sources = []
+    if include_archive:
+        sources.append(f"archive.org ({csv_filename})")
+    if include_ubu:
+        sources.append("UbuWeb (ubu_data/*.csv)")
+    console.print(f"[dim]  → Data sources: {', '.join(sources)}[/dim]")
