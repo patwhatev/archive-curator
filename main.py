@@ -13,7 +13,11 @@ from datetime import datetime
 
 import click
 import yaml
+from dotenv import load_dotenv
 from rich.console import Console
+
+# Load .env file automatically
+load_dotenv()
 from rich.logging import RichHandler
 from rich.table import Table
 from rich.panel import Panel
