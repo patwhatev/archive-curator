@@ -432,7 +432,7 @@ def check_auth(ctx):
 @cli.command()
 @click.option("--csv", "-c", default="data.csv", help="CSV data file name (default: data.csv)")
 @click.option("--output", "-o", default="output/viewer.html", help="Output HTML file path")
-@click.option("--title", "-t", default="Archive Curator", help="Page title")
+@click.option("--title", "-t", default="Galerie Pathétique", help="Page title")
 @click.option("--source", "-s", type=click.Choice(["all", "archive", "ubu"]), default="all",
               help="Data source: all (archive.org + UbuWeb), archive (archive.org only), ubu (UbuWeb only)")
 @click.option("--password", "-p", default=None, help="Password to protect viewer (or set VIEWER_PASSWORD env var)")
