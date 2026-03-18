@@ -28,6 +28,11 @@ from src.filters import FilterConfig
 from src.curator import ListConfig, add_items_to_list, get_existing_list_items
 from src.exporter import export_to_csv, export_to_html, export_to_json, generate_html_viewer, backup_csv, list_backups, BACKUP_DIR, load_existing_csv, CSV_FIELDNAMES
 from src.searcher import fetch_list_items
+from src.adhoc import (
+    parse_refs_file, classify_entry, get_category_and_mediatype,
+    build_term_dict, get_max_results, is_already_in_categories,
+    update_categories_yaml,
+)
 
 console = Console()
 
@@ -774,6 +779,139 @@ def sync(user, csv, category, dry_run):
     console.print(f"  1. Review/edit [cyan]{csv_path}[/cyan] (new items have category '{category}')")
     console.print(f"  2. Regenerate viewer: [cyan]python main.py viewer[/cyan]")
     console.print(f"  3. Deploy: [cyan]python main.py deploy --commit --push[/cyan]")
+
+
+@cli.command()
+@click.option("--input", "-i", "refs_file", default="config/louis-refs.md",
+              help="Refs markdown file to process")
+@click.option("--output", "-o", default="output/data.csv",
+              help="CSV file to append results to")
+@click.option("--update-categories", "-u", is_flag=True,
+              help="Add new entries to categories.yaml")
+@click.option("--dry-run", "-n", is_flag=True,
+              help="Preview without searching or modifying any files")
+@click.option("--max-results", "-m", default=50,
+              help="Max results per search term (default 50; magazines use 200)")
+@click.pass_context
+def adhoc(ctx, refs_file, output, update_categories, dry_run, max_results):
+    """Search archive.org from an ad-hoc refs file and update the CSV.
+
+    Reads a markdown file where each line describes one or more items:
+
+    \b
+      Alberto Giacometti (figure/artist)
+      Exit Magazine (magazine)
+      High risk (book)
+      El Pico (movie)
+      Richard Kern (director/photographer) / XXgirls (book)
+
+    Type annotations drive the search strategy:
+
+    \b
+      artist / musician / director / etc. → search works BY that person
+      book / movie                        → find that specific artifact
+      magazine / publication              → retrieve all issues found
+
+    Results are appended to the output CSV (duplicates skipped).
+    Pass --update-categories to also persist new entries in categories.yaml.
+    """
+    config_dir = ctx.obj["config_dir"]
+    refs_path = Path(refs_file)
+
+    if not refs_path.exists():
+        console.print(f"[red]Refs file not found: {refs_file}[/red]")
+        sys.exit(1)
+
+    categories, filter_config = load_config(config_dir)
+
+    # ── 1. Parse refs file ────────────────────────────────────────────────────
+    console.print(f"\n[bold]Parsing:[/bold] {refs_file}")
+    raw_entries = parse_refs_file(refs_path)
+
+    classified = [(e, classify_entry(e)) for e in raw_entries]
+    console.print(f"  {len(classified)} entries found\n")
+
+    # ── 2. Preview table ──────────────────────────────────────────────────────
+    table = Table(title="Refs Entries", show_lines=True)
+    table.add_column("Name",       style="white",  max_width=35)
+    table.add_column("Types",      style="dim",    max_width=25)
+    table.add_column("Class",      style="cyan",   width=10)
+    table.add_column("→ Category", style="green",  max_width=24)
+    table.add_column("New?",       width=5)
+
+    new_entries: list[tuple[dict, str]] = []
+    for entry, cls in classified:
+        cat_name, _ = get_category_and_mediatype(entry, cls)
+        is_new = not is_already_in_categories(entry["name"], categories)
+
+        table.add_row(
+            entry["name"],
+            "/".join(entry["types"]) if entry["types"] else "[dim]-[/dim]",
+            cls,
+            cat_name,
+            "[green]YES[/green]" if is_new else "[dim]no[/dim]",
+        )
+
+        if is_new:
+            new_entries.append((entry, cls))
+
+    console.print(table)
+    console.print(
+        f"\n[bold]{len(new_entries)}[/bold] new entries not yet in categories.yaml  "
+        f"([dim]{len(classified) - len(new_entries)} already present[/dim])"
+    )
+
+    if dry_run:
+        console.print("\n[yellow]DRY RUN — no changes made.[/yellow]")
+        return
+
+    # ── 3. Update categories.yaml (optional) ─────────────────────────────────
+    if update_categories and new_entries:
+        cats_path = config_dir / "categories.yaml"
+        stats = update_categories_yaml(cats_path, new_entries)
+
+        console.print(f"\n[green]categories.yaml updated[/green] — {len(stats['added'])} added, "
+                      f"{len(stats['skipped'])} skipped")
+        for name, cat in stats["added"]:
+            console.print(f"  [green]+[/green] {name}  →  {cat}")
+
+        # Reload so the rest of the run uses fresh config
+        categories, _ = load_config(config_dir)
+
+    # ── 4. Search archive.org for NEW entries only ────────────────────────────
+    console.print()
+    all_results = []
+
+    for entry, cls in new_entries:
+        cat_name, mediatypes = get_category_and_mediatype(entry, cls)
+        term_dict  = build_term_dict(entry, cls)
+        mr         = get_max_results(cls, default=max_results)
+
+        cat_config = {"mediatype": mediatypes, "terms": [term_dict]}
+
+        results = analyze_category(
+            cat_name,
+            cat_config,
+            filter_config,
+            max_results_per_term=mr,
+        )
+        all_results.extend(results)
+
+    # ── 5. Export to CSV ──────────────────────────────────────────────────────
+    passing = [r for r in all_results if r.confidence.passes]
+    console.print(f"\n[bold]{len(passing)} items pass[/bold] confidence threshold "
+                  f"(out of {len(all_results)} total)")
+
+    if passing:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        export_to_csv(all_results, output_path, include_failed=False, append=True)
+        console.print(f"\n[green]Appended to:[/green] {output_path}")
+        console.print(f"\n[bold]Next steps:[/bold]")
+        console.print(f"  Rebuild viewer:  [cyan]python main.py viewer[/cyan]")
+        console.print(f"  Deploy:          [cyan]python main.py deploy --commit --push[/cyan]")
+    else:
+        console.print("[yellow]No results to write.[/yellow]")
 
 
 if __name__ == "__main__":

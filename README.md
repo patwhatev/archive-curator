@@ -109,6 +109,83 @@ Then open http://localhost:8000/viewer.html in your browser.
 | publisher | Publisher name |
 | page_count | Number of pages (for texts) |
 
+## Ad-hoc Search from a Refs File
+
+The `adhoc` command lets you feed in a markdown list of references and automatically search archive.org for each one — without touching what's already in your collection.
+
+### How it works
+
+Each line in the refs file is one or more entries with a type annotation in parentheses:
+
+```
+Alberto Giacometti (figure/artist)
+Exit Magazine (magazine)
+High risk (book)
+El Pico (movie)
+Dada (movement)
+Richard Kern (director/photographer) / XXgirls (book)
+```
+
+The type annotation determines the search strategy:
+
+| Annotation | Strategy | Category |
+|---|---|---|
+| artist / photographer / architect | name search, texts | visual_art_and_artists |
+| musician | name search, audio | music_and_sound |
+| director / actor | name search, movies + texts | film_and_cinema |
+| writer / author | name search, texts | literature |
+| figure | name search, texts | figures |
+| movement | name search, texts | visual_art_and_artists |
+| book | exact `title:` search, texts, max 10 results | literature |
+| movie | exact `title:` search, movies, max 10 results | film_and_cinema |
+| magazine / publication / zine | name search, texts, up to 200 results | publications |
+
+Entries with multiple types (e.g. `musician/writer`) use the first recognised priority type.
+
+### Running adhoc
+
+```bash
+# Preview what will happen — no files touched
+python main.py adhoc --dry-run
+
+# Search all NEW entries and append results to output/data.csv
+python main.py adhoc
+
+# Also add new entries to categories.yaml so they appear in future `search` runs
+python main.py adhoc --update-categories
+
+# Use a different refs file or output path
+python main.py adhoc --input config/my-refs.md --output output/data.csv
+```
+
+### Important: only new entries are searched
+
+`adhoc` compares every entry in the refs file against `categories.yaml`. Entries already present there are **skipped** — they won't be searched again. Only genuinely new entries are searched and appended to the CSV. This prevents redundant API calls and duplicate results.
+
+### Appending, not overwriting
+
+Results are always **appended** to the existing CSV — the file is never overwritten from scratch:
+
+- The existing CSV is read into memory first
+- Only items whose `identifier` isn't already present are added
+- A timestamped backup is automatically created in `backups/` before any write
+
+You can safely run `adhoc` multiple times; duplicates are skipped both by identifier and by fuzzy title matching.
+
+### Full adhoc workflow
+
+```bash
+# 1. Preview the refs file
+python main.py adhoc --dry-run
+
+# 2. Search and append to collection
+python main.py adhoc --update-categories
+
+# 3. Rebuild viewer and deploy
+python main.py viewer
+python main.py deploy --commit --push
+```
+
 ## Deploying to GitHub Pages
 
 The viewer works on any static hosting since it's a real web server (unlike local `file://`).
@@ -250,6 +327,19 @@ Options:
   -d, --deploy-dir PATH    Deployment directory (default: deployed)
   --commit                 Git commit the changes
   --push                   Git push after commit (implies --commit)
+```
+
+### adhoc
+
+```bash
+python main.py adhoc [OPTIONS]
+
+Options:
+  -i, --input PATH         Refs markdown file (default: config/louis-refs.md)
+  -o, --output PATH        CSV to append results to (default: output/data.csv)
+  -u, --update-categories  Add new entries to categories.yaml
+  -n, --dry-run            Preview without searching or writing anything
+  -m, --max-results INT    Max results per term (default: 50; magazines: 200)
 ```
 
 ### check-auth
